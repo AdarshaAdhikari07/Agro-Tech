@@ -1,0 +1,148 @@
+Arduino
+
+// Define pin numbers
+const int pirPin = 2; // PIR sensor pin
+const int rainSensorPin = A0; // Rain sensor pin
+const int buzzerPin = 8; // Buzzer pin
+const int ledPin = 13; // LED pin
+
+void setup() {
+  // Initialize serial communication
+  Serial.begin(9600);
+
+  // Initialize PIR sensor pin as input
+  pinMode(pirPin, INPUT);
+
+  // Initialize buzzer pin as output
+  pinMode(buzzerPin, OUTPUT);
+
+  // Initialize LED pin as output
+  pinMode(ledPin, OUTPUT);
+}
+
+void loop() {
+  // Read the state of the PIR sensor
+  int pirState = digitalRead(pirPin);
+
+  // If motion is detected by the PIR sensor
+  if (pirState == HIGH) {
+    digitalWrite(buzzerPin, HIGH); // Turn on the buzzer
+    Serial.println("Motion detected!");
+  } else {
+    digitalWrite(buzzerPin, LOW); // Turn off the buzzer
+  }
+
+  // Read the state of the rain sensor
+  int rainSensorValue = analogRead(rainSensorPin);
+
+  // Define a threshold for rain detection
+  int rainThreshold = 500; // Adjust based on your sensor
+
+  // If rain is detected by the rain sensor
+  if (rainSensorValue < rainThreshold) {
+    digitalWrite(ledPin, HIGH); // Turn on the LED
+    Serial.println("Rain detected!");
+  } else {
+    digitalWrite(ledPin, LOW); // Turn off the LED
+  }
+
+  // Small delay to avoid flooding the serial monitor
+  delay(500);
+}
+
+nodemcu
+
+
+#define BLYNK_TEMPLATE_ID "TMPL6oOArZRBl"
+#define BLYNK_TEMPLATE_NAME "modmcu"
+#define BLYNK_AUTH_TOKEN "Y1Lw2x65kEmudNYAk7kro3WsGRbYs25Y"
+
+#define BLYNK_PRINT Serial
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <DHT.h>
+
+char auth[] = "Y1Lw2x65kEmudNYAk7kro3WsGRbYs25Y"; 
+// WiFi credentials
+char ssid[] = "Vianet-111015";
+char pass[] = "9804224830";
+
+// Sensor pins and types
+#define MOISTURE_SENSOR_PIN D5  // Digital pin for moisture sensor
+#define RELAY_PIN D1
+#define DHTPIN D2
+#define DHTTYPE DHT11 // Change to DHT22 if you are using the DHT22 sensor
+
+DHT dht(DHTPIN, DHTTYPE);
+
+BlynkTimer timer;
+
+void setup()
+{
+  // Start serial communication
+  Serial.begin(9600);
+
+  // Initialize Blynk
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+
+  // Initialize DHT sensor
+  dht.begin();
+
+  // Initialize pins
+  pinMode(MOISTURE_SENSOR_PIN, INPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, HIGH); // Initially off
+
+  // Setup a timer to call the function every second
+  timer.setInterval(1000L, readSensors);
+}
+
+void readSensors()
+{
+  // Read soil moisture level from digital pin
+  int moistureLevel = digitalRead(MOISTURE_SENSOR_PIN);
+  Serial.print("Soil Moisture: ");
+  Serial.println(moistureLevel);
+  Blynk.virtualWrite(V1, moistureLevel);
+
+  // Read temperature and humidity
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.print(" °C, Humidity: ");
+  Serial.print(humidity);
+  Serial.println(" %");
+  Blynk.virtualWrite(V2, temperature);
+  Blynk.virtualWrite(V3, humidity);
+
+  // Control water pump based on soil moisture level
+  if (moistureLevel == LOW) // LOW means no moisture detected
+  {
+    digitalWrite(RELAY_PIN, LOW); // Turn on the water pump
+  }
+  else
+  {
+    digitalWrite(RELAY_PIN, HIGH); // Turn off the water pump
+  }
+}
+
+BLYNK_WRITE(V4)
+{
+  int pinValue = param.asInt();
+  if (pinValue == 1)
+  {
+    digitalWrite(RELAY_PIN, LOW); // Turn on the water pump
+  }
+  else
+  {
+    digitalWrite(RELAY_PIN, HIGH); // Turn off the water pump
+  }
+}
+
+void loop()
+{
+  Blynk.run();
+  timer.run();
+}
